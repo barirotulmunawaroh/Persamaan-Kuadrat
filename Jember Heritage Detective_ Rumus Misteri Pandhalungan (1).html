@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jember Heritage Detective: Rumus Misteri Pandhalungan</title>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Library PDF (jsPDF) dari cdnjs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ===== 1. TOKEN WARNA & TIPOGRAFI ===== */
+:root{
+  --indigo:#17133a;   /* malam batik */
+  --indigo2:#241d57;
+  --kunyit:#ffc83d;   /* kuning kunyit: aksen utama */
+  --sogan:#c8791f;    /* cokelat sogan */
+  --daun:#35d6a0;     /* hijau daun tembakau: benar */
+  --bara:#ff5a4e;     /* merah: salah/nyawa */
+  --putih:#fff8e8;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{margin:0;min-height:100%;background:var(--indigo);color:var(--putih);font-family:'Rubik',system-ui,sans-serif;font-size:16px}
+/* Motif batik kawung dibuat murni dengan CSS */
+body{background-image:
+  radial-gradient(circle at 50% 50%,transparent 36%,rgba(255,200,61,.09) 38% 46%,transparent 48%),
+  radial-gradient(circle at 0 0,transparent 36%,rgba(255,200,61,.06) 38% 46%,transparent 48%),
+  radial-gradient(circle at 100% 100%,transparent 36%,rgba(255,200,61,.06) 38% 46%,transparent 48%);
+  background-size:56px 56px;animation:geser 40s linear infinite}
+@keyframes geser{to{background-position:56px 56px,56px 56px,56px 56px}}
+/* partikel melayang: percikan (L1), gelembung (L2), kunang-kunang (L3) */
+:root{--dot:255,200,61}
+body[data-lv="1"]{--dot:120,220,255}
+body[data-lv="2"]{--dot:53,214,160}
+#bg{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+#bg i{position:absolute;bottom:-20px;border-radius:50%;background:rgba(var(--dot),.55);box-shadow:0 0 12px rgba(var(--dot),.8);animation:naik linear infinite}
+@keyframes naik{0%{transform:translate(0,0);opacity:0}10%{opacity:1}90%{opacity:.9}100%{transform:translate(var(--dx,20px),-110vh);opacity:0}}
+.wrap,.hud{position:relative;z-index:1}
+.hud{position:sticky}
+@media (prefers-reduced-motion:reduce){body{animation:none}#bg{display:none}}
+h1,h2,h3{font-family:'Alfa Slab One',Georgia,serif;font-weight:400;margin:.3em 0;line-height:1.15}
+.wrap{max-width:520px;margin:0 auto;padding:14px 14px 40px}
+.screen{display:none}.screen.on{display:block}
+
+/* ===== 2. KOMPONEN UMUM ===== */
+.panel{background:rgba(36,29,87,.92);border:2px solid var(--kunyit);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 6px 0 rgba(0,0,0,.35)}
+.btn{display:block;width:100%;min-height:52px;border:0;border-radius:14px;background:var(--kunyit);color:#2a1a00;font:700 1.05rem 'Rubik',sans-serif;padding:12px 16px;box-shadow:0 5px 0 var(--sogan);cursor:pointer}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--sogan)}
+.btn.alt{background:var(--daun);box-shadow:0 5px 0 #1b8a67;color:#04281d}
+.btn.big{font-size:1.15rem;padding:16px;background:var(--bara);box-shadow:0 5px 0 #a82a22;color:#fff}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,.card:focus-visible{outline:3px solid #fff;outline-offset:2px}
+input[type=text],input[type=number],textarea{width:100%;border:2px solid var(--kunyit);border-radius:12px;background:#0f0c29;color:var(--putih);font:500 1.05rem 'Rubik',sans-serif;padding:12px}
+label{display:block;font-weight:500;margin:10px 0 4px}
+.muted{opacity:.8;font-size:.92rem}
+.hero{text-align:center;padding:18px 6px 4px}
+.hero .tag{display:inline-block;background:var(--bara);border-radius:99px;padding:4px 14px;font-weight:700;font-size:.85rem}
+.hero h1{font-size:1.9rem;color:var(--kunyit);text-shadow:3px 3px 0 var(--sogan)}
+
+/* HUD: level, nyawa, skor */
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--indigo);border-bottom:2px solid var(--kunyit);padding:8px 14px}
+.hud .lives{font-size:1.4rem;letter-spacing:2px}
+.hud .sc{font-weight:700;color:var(--kunyit)}
+#mute{background:none;border:2px solid var(--kunyit);color:var(--kunyit);border-radius:10px;min-width:44px;min-height:40px;font-size:1.1rem}
+.story{border-left:6px solid var(--daun);padding-left:12px}
+.eq{font:700 1.3rem 'Rubik',monospace;background:#0f0c29;border:2px dashed var(--kunyit);border-radius:12px;padding:12px;text-align:center;color:var(--kunyit);margin:10px 0;overflow-x:auto}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:12px 18px;border-radius:14px;font-weight:700;z-index:20;max-width:92%;text-align:center;display:none}
+.toast.ok{background:var(--daun);color:#04281d}.toast.no{background:var(--bara);color:#fff}
+.shake{animation:sh .4s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@media (prefers-reduced-motion:reduce){.shake{animation:none}}
+
+/* ===== 3. LEVEL 1: KARTU BATIK ===== */
+.board{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.card{min-height:96px;border-radius:14px;border:2px solid var(--kunyit);display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;font-weight:700;cursor:pointer;
+  background:var(--putih);color:#241d57;user-select:none}
+.card.open{background:var(--kunyit);border-color:#fff;transform:scale(.97)}
+.card.done{background:var(--daun);color:#04281d;border-color:#fff}
+
+/* ===== 4. LEVEL 2: MENARA AIR ===== */
+.tower{width:100%;height:auto;display:block}
+.water{transition:height .4s}
+input[type=range]{width:100%;accent-color:var(--kunyit);height:36px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ===== 5. LEVEL 3: GRID VENTILASI ===== */
+.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;margin:10px 0}
+.grid i{aspect-ratio:1;background:#0f0c29;border-radius:3px}
+.grid i.on{background:var(--daun)}
+
+.blk{display:inline-block;width:84px;padding:6px 8px;margin:2px 3px;text-align:center}
+.step.lock{opacity:.4}.step.done{border-color:var(--daun)}.step.done.lock{opacity:.85}
+.step p{line-height:2}
+/* ===== 6. TABEL SKOR ===== */
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{border:1px solid var(--kunyit);padding:6px;text-align:center}
+th{background:var(--kunyit);color:#2a1a00}
+</style>
+</head>
+<body>
+<div id="bg" aria-hidden="true"></div>
+<div class="wrap">
+
+<!-- ===== LAYAR: MULAI ===== -->
+<section id="s-start" class="screen on">
+  <div class="hero">
+    <span class="tag">Persamaan Kuadrat · Kelas X</span>
+    <h1>JEMBER HERITAGE DETECTIVE</h1>
+    <h2 style="font-size:1.1rem">Rumus Misteri Pandhalungan</h2>
+  </div>
+  <div class="panel story">
+    <p>Tiga cagar budaya Jember terkunci oleh rumus kuno. Hanya detektif yang paham persamaan kuadrat yang bisa membukanya.</p>
+    <p class="muted">Tiap level: 3 nyawa ❤️. Setiap nyawa hilang memotong 5 poin. Skor maksimum per level 100.</p>
+    <label for="nama">Nama pemain / kelompok pasangan</label>
+    <input id="nama" type="text" placeholder="Contoh: Sari &amp; Budi" autocomplete="off">
+    <p></p>
+    <button class="btn" id="btnMulai">Mulai Penyelidikan</button>
+  </div>
+</section>
+
+<!-- ===== LAYAR: PERMAINAN (HUD + isi level) ===== -->
+<section id="s-game" class="screen">
+  <div class="hud">
+    <div><div id="hLevel" class="sc"></div><div id="hLives" class="lives"></div></div>
+    <div class="sc" id="hScore"></div>
+    <button id="mute" aria-label="Suara">🔊</button>
+  </div>
+  <div id="stage"></div>
+</section>
+
+<!-- ===== LAYAR: GAME OVER LEVEL ===== -->
+<section id="s-over" class="screen">
+  <div class="panel" style="text-align:center">
+    <h2 style="color:var(--bara)">Nyawa Habis!</h2>
+    <p>Penalti level ini bertambah. Pelajari lagi lalu coba ulang dari awal.</p>
+    <button class="btn" id="btnUlang">Ulangi Level</button>
+  </div>
+</section>
+
+<!-- ===== LAYAR: LEVEL SELESAI ===== -->
+<section id="s-win" class="screen">
+  <div class="panel" style="text-align:center">
+    <h2 style="color:var(--daun)">Level Terbuka!</h2>
+    <p id="winInfo"></p>
+    <button class="btn alt" id="btnLanjut">Lanjut</button>
+  </div>
+</section>
+
+<!-- ===== LAYAR: BUKU CATATAN ANALISIS ===== -->
+<section id="s-notes" class="screen">
+  <div class="panel">
+    <h2 style="color:var(--kunyit)">Buku Catatan Analisis Detektif</h2>
+    <p class="muted"><b>Wajib diisi.</b> Jelaskan cara berpikirmu (tiap jawaban minimal 20 karakter):</p>
+    <label for="j1">1. Apa pengertian dari diskriminan dan jelaskan fungsinya!</label>
+    <textarea id="j1" class="jwb" rows="4" placeholder="Jawaban nomor 1..."></textarea>
+    <label for="j2">2. Bagaimana cara mencari titik puncak parabola?</label>
+    <textarea id="j2" class="jwb" rows="4" placeholder="Jawaban nomor 2..."></textarea>
+    <label for="j3">3. Bagaimana cara mencari akar-akar persamaan kuadrat?</label>
+    <textarea id="j3" class="jwb" rows="4" placeholder="Jawaban nomor 3..."></textarea>
+    <p></p>
+    <button class="btn alt" id="btnSimpan">Simpan &amp; Lihat Skor Akhir</button>
+  </div>
+</section>
+
+<!-- ===== LAYAR: SCOREBOARD ===== -->
+<section id="s-end" class="screen">
+  <div class="panel">
+    <h2 style="color:var(--kunyit)">Kasus Terpecahkan!</h2>
+    <p>Detektif: <b id="eNama"></b></p>
+    <div id="eTabel"></div>
+    <h3 style="text-align:center;margin-top:14px">Skor Akhir: <span id="eTotal" style="color:var(--daun)"></span></h3>
+    <p class="muted" id="eAvg" style="text-align:center"></p>
+    <button class="btn big" id="btnPdf">UNDUH LAPORAN JURNAL DETEKTIF (PDF)</button>
+    <p></p>
+    <button class="btn" id="btnBaru">Main Lagi</button>
+  </div>
+</section>
+</div>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+/* =====================================================
+   A. STATE GLOBAL
+   lost[i]  = total nyawa hilang kumulatif di level i (semua percobaan)
+   skor level = max(0, 100 - 5 * lost)
+   ===================================================== */
+const G={nama:'',level:0,lives:3,lost:[0,0,0],catatan:[]};
+const NAMA_LEVEL=['Gerbang Candi Deres (Gumukmas)','Menara Air Pasar Tanjung (Jember Kota)','Gudang Tembakau Besuki Na-Oogst (Ajung/Jelbuk)'];
+const $=id=>document.getElementById(id);
+const skorLevel=i=>Math.max(0,100-5*G.lost[i]);
+const skorTotal=()=>G.lost.reduce((a,_,i)=>a+skorLevel(i),0);
+
+/* Latar animasi: buat 16 partikel dengan ukuran, posisi, dan kecepatan acak */
+(function(){const bg=$('bg');for(let i=0;i<16;i++){const d=document.createElement('i'),z=4+Math.random()*8;
+  d.style.cssText=`left:${Math.random()*100}%;width:${z}px;height:${z}px;animation-duration:${9+Math.random()*12}s;animation-delay:-${Math.random()*15}s;--dx:${(Math.random()*80-40)|0}px`;bg.appendChild(d)}})();
+/* Navigasi layar */
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$(id).classList.add('on');window.scrollTo(0,0)}
+function toast(msg,ok){const t=$('toast');t.textContent=msg;t.className='toast '+(ok?'ok':'no');t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',1800)}
+
+/* =====================================================
+   B. AUDIO PROSEDURAL (Web Audio API, tanpa file eksternal)
+   L1 gamelan mistis | L2 patrol lo-fi | L3 seruling + suasana desa
+   ===================================================== */
+const Audio_={ctx:null,timer:null,muted:false,step:0};
+function ac(){if(!Audio_.ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;Audio_.ctx=new C()}if(Audio_.ctx.state==='suspended')Audio_.ctx.resume();return Audio_.ctx}
+/* satu nada: tipe gelombang, frekuensi, durasi, volume, vibrato opsional */
+function tone(f,d,type,vol,vib){const c=ac();if(!c||Audio_.muted)return;const t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  if(vib){const l=c.createOscillator(),lg=c.createGain();l.frequency.value=5;lg.gain.value=f*.012;l.connect(lg);lg.connect(o.frequency);l.start(t);l.stop(t+d)}
+  o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+d)}
+/* derau pendek (snare patrol / jangkrik) */
+function noise(d,vol,hp){const c=ac();if(!c||Audio_.muted)return;const n=c.sampleRate*d,b=c.createBuffer(1,n,c.sampleRate),a=b.getChannelData(0);
+  for(let i=0;i<n;i++)a[i]=(Math.random()*2-1)*(1-i/n);const s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+  s.buffer=b;f.type='highpass';f.frequency.value=hp;g.gain.value=vol;s.connect(f);f.connect(g);g.connect(c.destination);s.start()}
+const SLENDRO=[261.6,293.7,349.2,392,440,523.2]; // skala pentatonik mirip slendro
+const MUSIK=[
+  /* L1: lambat, bel gamelan + gong rendah */
+  {ms:900,play(s){if(s%8===0)tone(65.4,3,'sine',.25);tone(SLENDRO[[0,2,4,3,1,2,4,5][s%8]],2,'sine',.12);if(s%2)tone(SLENDRO[(s*3)%6]*2,1.2,'triangle',.05)}},
+  /* L2: patrol (kentongan) + bass lo-fi */
+  {ms:190,play(s){const p=s%16;if([0,6,10].includes(p))tone(80,.25,'sine',.35);if([4,12].includes(p))noise(.12,.12,1500);if(p%2===0)noise(.04,.05,6000);
+    if(p%4===0)tone([110,110,130.8,98][(p/4)|0],.4,'triangle',.12);if([2,7,11,14].includes(p))tone(SLENDRO[p%5]*2,.15,'square',.03)}},
+  /* L3: seruling bervibrato + jangkrik pedesaan */
+  {ms:600,play(s){const m=[0,2,4,2,5,4,2,1];if(s%2===0)tone(SLENDRO[m[(s/2)%8]]*2,1.1,'sine',.1,true);if(s%4===1)tone(SLENDRO[0]/2,1.2,'triangle',.08);
+    noise(.05,.025,7000);setTimeout(()=>noise(.05,.02,7500),120)}}
+];
+function musik(n){clearInterval(Audio_.timer);Audio_.step=0;if(n<0)return;const m=MUSIK[n];ac();Audio_.timer=setInterval(()=>{if(!Audio_.muted)m.play(Audio_.step++)},m.ms)}
+function sfx(ok){ok?[523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.25,'triangle',.2),i*90)):(tone(150,.35,'sawtooth',.18),noise(.3,.2,800))}
+$('mute').onclick=()=>{Audio_.muted=!Audio_.muted;$('mute').textContent=Audio_.muted?'🔇':'🔊'};
+
+/* =====================================================
+   C. SISTEM NYAWA & SKOR
+   ===================================================== */
+function hud(){
+  $('hLevel').textContent='Level '+(G.level+1)+'/3';
+  $('hLives').textContent='❤️'.repeat(G.lives)+'🖤'.repeat(3-G.lives);
+  $('hScore').textContent='Skor: '+skorLevel(G.level);
+}
+/* Dipanggil setiap jawaban salah: nyawa -1, penalti -5 (lewat lost[]) */
+function salah(msg){
+  G.lives--;G.lost[G.level]++;sfx(false);hud();toast(msg,false);
+  $('stage').classList.add('shake');setTimeout(()=>$('stage').classList.remove('shake'),400);
+  if(G.lives<=0){setTimeout(()=>{musik(-1);show('s-over')},900);return true}
+  return false;
+}
+/* Dipanggil saat tantangan terpecahkan */
+function menang(){
+  sfx(true);musik(-1);
+  $('winInfo').innerHTML='Skor level: <b>'+skorLevel(G.level)+'</b><br>Sisa nyawa: '+G.lives+' · Total nyawa hilang: '+G.lost[G.level]+' (penalti −'+5*G.lost[G.level]+')';
+  setTimeout(()=>show('s-win'),700);
+}
+
+/* =====================================================
+   D. ALUR LEVEL
+   ===================================================== */
+function mulaiLevel(n){document.body.dataset.lv=n;G.level=n;G.lives=3;show('s-game');hud();[lv1,lv2,lv3][n]();musik(n)}
+
+/* ---------- LEVEL 1: Kartu Tradisional Jemberan ---------- */
+function lv1(){
+  // Kunci jawaban: y = -x²+6x-9 → a=-1,b=6,c=-9 → D=b²-4ac=36-36=0 (akar kembar, menyinggung sumbu X)
+  const kartu=[
+    {t:'D = 0',k:'A'},{t:'D = 12',k:'B'},{t:'D = −8',k:'C'},
+    {t:'Kurva Menyinggung Sumbu X (Akar Kembar Real)',k:'A'},
+    {t:'Kurva Memotong Sumbu X di Dua Titik Berbeda',k:'B'},
+    {t:'Kurva Tidak Menyentuh Sumbu X (Akar Imajiner)',k:'C'}
+  ].sort(()=>Math.random()-.5);
+  $('stage').innerHTML=`<div class="wrap"><div class="panel story"><h3>Gerbang Candi Deres</h3>
+  <p>Di dinding candi tertulis persamaan gerbang:</p><div class="eq">y = −x² + 6x − 9</div>
+  <p class="muted">Hitung diskriminan D = b² − 4ac secara mandiri (di kertas), lalu ketuk dua kartu yang berpasangan: nilai D yang benar dan sifat kurvanya.</p></div>
+  <div class="board" id="board"></div></div>`;
+  let buka=[];
+  kartu.forEach((c,i)=>{
+    const e=document.createElement('div');e.className='card';e.tabIndex=0;e.setAttribute('role','button');e.textContent=c.t;
+    const aksi=()=>{
+      if(e.classList.contains('open')||buka.length>=2)return;
+      e.classList.add('open');buka.push({e,c});
+      if(buka.length===2){
+        const [p,q]=buka;
+        // benar bila keduanya berkelompok 'A' (D=0 + akar kembar)
+        if(p.c.k==='A'&&q.c.k==='A'){p.e.classList.add('done');q.e.classList.add('done');toast('Cocok! D = 0, akar kembar real.',true);menang()}
+        else{setTimeout(()=>{const over=salah('Pasangan salah! Periksa lagi hitungan D-mu.');if(!over)buka.forEach(x=>x.e.classList.remove('open'));buka=[]},700)}
+      }
+    };
+    e.onclick=aksi;e.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();aksi()}};
+    $('board').appendChild(e);
+  });
+}
+
+/* ---------- LEVEL 2: Konstruksi Katup Digital ---------- */
+function lv2(){
+  // Kunci: f(x)=-2x²+8x+10 → Xp=-b/2a=2 ; Yp=f(2)=-8+16+10=18
+  $('stage').innerHTML=`<div class="wrap"><div class="panel story"><h3>Menara Air Pasar Tanjung</h3>
+  <p>Pipa tersumbat. Pancaran air kuno mengikuti:</p><div class="eq">f(x) = −2x² + 8x + 10</div>
+  <p class="muted">Tentukan titik puncak (Xp, Yp): Xp = −b/2a, lalu Yp = f(Xp). Atur katup dengan slider atau ketik angkanya.</p></div>
+  <svg class="tower" viewBox="0 0 300 150" aria-hidden="true">
+   <rect x="120" y="10" width="60" height="70" rx="8" fill="#c8791f" stroke="#ffc83d" stroke-width="3"/>
+   <rect x="132" y="22" width="36" height="46" fill="#17133a"/>
+   <rect id="wt" class="water" x="132" y="68" width="36" height="0" fill="#35d6a0"/>
+   <rect x="140" y="80" width="20" height="55" fill="#8a5416"/>
+   <rect x="20" y="132" width="260" height="12" rx="6" fill="#241d57" stroke="#ffc83d" stroke-width="2"/>
+   <circle id="kt" cx="150" cy="106" r="14" fill="#ffc83d" stroke="#17133a" stroke-width="3"/></svg>
+  <div class="panel"><label for="xp">Sumbu simetri Xp: <b id="xv">0</b></label><input type="range" id="xs" min="-10" max="10" value="0">
+  <input type="number" id="xp" value="0">
+  <label for="yp">Nilai maksimum Yp: <b id="yv">0</b></label><input type="range" id="ys" min="-10" max="30" value="0">
+  <input type="number" id="yp" value="0"><p></p>
+  <button class="btn" id="uji">Uji Katup</button></div></div>`;
+  // sinkronisasi slider ↔ kotak angka
+  [['xs','xp','xv'],['ys','yp','yv']].forEach(([s,n,v])=>{
+    $(s).oninput=()=>{$(n).value=$(s).value;$(v).textContent=$(s).value;$('kt').setAttribute('cx',150+$('xs').value*5)};
+    $(n).oninput=()=>{$(s).value=$(n).value;$(v).textContent=$(n).value};
+  });
+  $('uji').onclick=()=>{
+    const x=parseFloat($('xp').value),y=parseFloat($('yp').value);
+    if(x===2&&y===18){$('wt').setAttribute('height',46);$('wt').setAttribute('y',22);toast('Katup terkunci pas di (2, 18)!',true);menang()}
+    else salah('Air menyembur! Katup di ('+(isNaN(x)?'?':x)+', '+(isNaN(y)?'?':y)+') belum tepat.');
+  };
+}
+
+/* ---------- LEVEL 3: Teka-Teki Angka & Ruang (isian rumpang, rumus abc) ---------- */
+function lv3(){
+  // Model: kawat 24 m -> p+l=12 -> L=-p²+12p. Akar (L=0): p=0 dan p=12 (rumus abc).
+  // Luas terbesar di tengah akar: p=6 -> l=6 -> L=36.
+  const F=id=>`<input type="number" class="blk" id="${id}" inputmode="numeric">`;
+  const v=id=>$(id).value===''?NaN:+$(id).value;
+  const ST=[
+   {h:'Langkah 1. Tentukan a, b, dan c',
+    t:`Bentuk persamaan: <b>−p² + 12p + 0 = 0</b><br>a = ${F('a1')} &nbsp; b = ${F('a2')} &nbsp; c = ${F('a3')}`,
+    ok:()=>v('a1')===-1&&v('a2')===12&&v('a3')===0, err:'Lihat koefisien p², p, dan konstanta. Tanda minus ikut dihitung.'},
+   {h:'Langkah 2. Hitung diskriminan',
+    t:`D = b² − 4ac = (12)² − 4(−1)(0) = ${F('d1')}`,
+    ok:()=>v('d1')===144, err:'D = 144 − 0. Hitung lagi 12².'},
+   {h:'Langkah 3. Akar dari D',
+    t:`√D = √144 = ${F('r1')}`, ok:()=>v('r1')===12, err:'Cari bilangan yang dikali dirinya sendiri hasilnya 144.'},
+   {h:'Langkah 4. Rumus abc: cari kedua akar',
+    t:`p₁ = (−b + √D) / 2a = (−12 + 12) / (−2) = ${F('x1')}<br>p₂ = (−b − √D) / 2a = (−12 − 12) / (−2) = ${F('x2')}`,
+    ok:()=>v('x1')===0&&v('x2')===12, err:'Pembilang p₁ = 0, pembilang p₂ = −24. Bagi dengan −2.'},
+   {h:'Langkah 5. Titik tengah akar',
+    t:`Luas terbesar ada di tengah kedua akar:<br>p = (p₁ + p₂) / 2 = (0 + 12) / 2 = ${F('m1')}`,
+    ok:()=>v('m1')===6, err:'Jumlahkan kedua akar, lalu bagi 2.'},
+   {h:'Langkah 6. Isi denah ventilasi',
+    t:`Panjang p = ${F('pp')} m &nbsp; Lebar l = 12 − p = ${F('ll')} m<br>Luas maksimum = p × l = ${F('lm')} m²
+     <div class="grid" id="gr"></div><span id="live" class="muted">Ketik p dan l untuk melihat denahnya.</span>`,
+    ok:()=>v('pp')===6&&v('ll')===6&&v('lm')===36, err:'Pakai p dari Langkah 5. Lalu l = 12 − p dan luas = p × l.'}
+  ];
+  $('stage').innerHTML=`<div class="wrap"><div class="panel story"><h3>Gudang Tembakau Besuki Na-Oogst</h3>
+   <p><b>Soal:</b> Pak Tani punya kawat <b>24 meter</b> untuk membuat bingkai ventilasi persegi panjang. Karena keliling 24, maka p + l = 12, sehingga luasnya <b>L = p(12 − p) = −p² + 12p</b>.</p>
+   <p class="muted">Isi kotak kosong satu per satu dari atas. Tekan "Cek langkah" untuk membuka langkah berikutnya. Jawaban salah mengurangi 1 nyawa.</p></div>
+   ${ST.map((s,i)=>`<div class="panel step" id="st${i}"><b>${s.h}</b><p>${s.t}</p><button class="btn" data-i="${i}">Cek langkah</button></div>`).join('')}</div>`;
+  // kunci semua langkah kecuali yang aktif
+  const aktif=k=>ST.forEach((_,i)=>{const el=$('st'+i);el.classList.toggle('lock',i!==k);el.querySelectorAll('input,button').forEach(x=>x.disabled=(i!==k))});
+  aktif(0);
+  // denah bantu pada langkah 6
+  const gr=$('gr');for(let i=0;i<100;i++)gr.appendChild(document.createElement('i'));
+  const gambar=()=>{const a=+$('pp').value||0,b=+$('ll').value||0,P=Math.min(10,Math.max(0,a)),L=Math.min(10,Math.max(0,b));
+    [...gr.children].forEach((c,i)=>c.classList.toggle('on',(i%10)<P&&((i/10)|0)<L));$('live').textContent='p + l = '+(a+b)+' (harus 12) · p × l = '+(a*b)+' m²'};
+  $('pp').addEventListener('input',gambar);$('ll').addEventListener('input',gambar);
+  document.querySelectorAll('.step button').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i,el=$('st'+i);
+    if([...el.querySelectorAll('input')].some(x=>x.value==='')){toast('Isi semua kotak di langkah ini dulu.',false);return}
+    if(ST[i].ok()){
+      el.classList.add('done');
+      if(i===ST.length-1){el.querySelectorAll('input,button').forEach(x=>x.disabled=true);toast('Sirkulasi udara maksimal! 6 × 6 = 36 m²',true);menang()}
+      else{toast('Benar! Lanjut ke langkah berikutnya.',true);aktif(i+1);$('st'+(i+1)).scrollIntoView({behavior:'smooth',block:'center'})}
+    }else salah(ST[i].err);
+  });
+}
+
+/* =====================================================
+   E. TOMBOL & EVENT
+   ===================================================== */
+$('btnMulai').onclick=()=>{const n=$('nama').value.trim();if(!n){toast('Isi nama pemain/kelompok dulu.',false);return}G.nama=n;G.lost=[0,0,0];mulaiLevel(0)};
+$('btnUlang').onclick=()=>mulaiLevel(G.level);          // nyawa direset, penalti tetap kumulatif
+$('btnLanjut').onclick=()=>G.level<2?mulaiLevel(G.level+1):(show('s-notes'));
+/* Simpan tiga jawaban analisis (masing-masing wajib minimal 20 karakter) */
+$('btnSimpan').onclick=()=>{
+  const j=['j1','j2','j3'].map(id=>$(id).value.trim());
+  const k=j.findIndex(t=>t.length<20);
+  if(k>=0){toast('Jawaban nomor '+(k+1)+' minimal 20 karakter.',false);$('j'+(k+1)).focus();return}
+  G.catatan=j;tampilSkor();show('s-end')};
+$('btnBaru').onclick=()=>{document.querySelectorAll('.jwb').forEach(t=>t.value='');show('s-start')};
+
+/* Scoreboard */
+function tampilSkor(){
+  $('eNama').textContent=G.nama;
+  let h='<table><tr><th>Level</th><th>Nyawa hilang</th><th>Penalti</th><th>Skor</th></tr>';
+  G.lost.forEach((l,i)=>h+=`<tr><td>${i+1}</td><td>${l}</td><td>−${5*l}</td><td><b>${skorLevel(i)}</b></td></tr>`);
+  $('eTabel').innerHTML=h+'</table>';
+  $('eTotal').textContent=skorTotal()+' / 300';
+  $('eAvg').textContent='Rata-rata: '+(skorTotal()/3).toFixed(1)+' · Total nyawa hilang: '+G.lost.reduce((a,b)=>a+b,0);
+}
+
+/* =====================================================
+   F. EKSPOR PDF (jsPDF): kop, identitas, tabel, analisis, tanda tangan guru
+   ===================================================== */
+$('btnPdf').onclick=()=>{
+  if(!window.jspdf){toast('Library PDF belum termuat. Periksa koneksi internet.',false);return}
+  const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});const W=210,M=18;let y=0;
+  // Kop
+  doc.setFillColor(23,19,58);doc.rect(0,0,W,34,'F');
+  doc.setTextColor(255,200,61);doc.setFont('helvetica','bold');doc.setFontSize(16);
+  doc.text('JEMBER HERITAGE DETECTIVE',W/2,14,{align:'center'});
+  doc.setFontSize(10);doc.setTextColor(255,248,232);
+  doc.text('Rumus Misteri Pandhalungan - Jurnal Detektif (Persamaan Kuadrat, Kelas X)',W/2,22,{align:'center'});
+  doc.text('Pembelajaran Responsif Budaya Jember',W/2,28,{align:'center'});
+  // Identitas
+  doc.setTextColor(0);doc.setFontSize(11);y=44;
+  doc.setFont('helvetica','bold');doc.text('Identitas',M,y);doc.setFont('helvetica','normal');
+  doc.text('Nama / Kelompok : '+G.nama,M,y+7);
+  doc.text('Tanggal : '+new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),M,y+14);
+  // Tabel nilai (digambar manual agar presisi)
+  y=68;const cols=[M,M+78,M+108,M+138],w=[78,30,30,W-2*M-138+M];
+  doc.setFont('helvetica','bold');doc.text('Rincian Nilai',M,y-3);
+  const baris=(r,hdr)=>{doc.setFont('helvetica',hdr?'bold':'normal');doc.setFontSize(9);
+    if(hdr){doc.setFillColor(255,200,61);doc.rect(M,y,W-2*M,9,'F')}
+    const lebar=[78,30,30,W-2*M-138];
+    r.forEach((t,i)=>{doc.rect(cols[i],y,lebar[i],9);doc.text(String(t),cols[i]+(i?lebar[i]/2:2),y+6,{align:i?'center':'left'})});y+=9};
+  baris(['Level / Cagar Budaya','Nyawa hilang','Penalti','Skor'],true);
+  G.lost.forEach((l,i)=>baris([(i+1)+'. '+['Gerbang Candi Deres','Menara Air Pasar Tanjung','Gudang Tembakau Besuki'][i],l,'-'+5*l,skorLevel(i)]));
+  baris(['TOTAL SKOR (maks. 300)',G.lost.reduce((a,b)=>a+b,0),'-'+5*G.lost.reduce((a,b)=>a+b,0),skorTotal()],true);
+  doc.setFont('helvetica','normal');doc.setFontSize(10);
+  doc.text('Rata-rata nilai: '+(skorTotal()/3).toFixed(1)+'   |   Rumus: skor level = 100 - (5 x nyawa hilang)',M,y+7);
+  // Analisis siswa
+  y+=18;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('Buku Catatan Analisis Detektif',M,y);
+  y+=6;
+  const Q=['1. Apa pengertian dari diskriminan dan jelaskan fungsinya!','2. Bagaimana cara mencari titik puncak parabola?','3. Bagaimana cara mencari akar-akar persamaan kuadrat?'];
+  Q.forEach((q,n)=>{
+    if(y>250){doc.addPage();y=20}
+    doc.setFont('helvetica','bold');doc.setFontSize(10.5);
+    doc.splitTextToSize(q,W-2*M).forEach(l=>{doc.text(l,M,y);y+=5.4});
+    doc.setFont('helvetica','normal');
+    doc.splitTextToSize(G.catatan[n],W-2*M).forEach(l=>{if(y>270){doc.addPage();y=20}doc.text(l,M,y);y+=5.4});
+    y+=3;
+  });
+  // Tanda tangan guru
+  if(y>230){doc.addPage();y=20}
+  y=Math.max(y+14,238);
+  doc.setFontSize(10);doc.text('Jember, ........................................',W-M-60,y);
+  doc.text('Guru Mata Pelajaran,',W-M-60,y+6);
+  doc.line(W-M-60,y+30,W-M,y+30);doc.text('(Nama &amp; tanda tangan)'.replace('&amp;','&'),W-M-60,y+35);
+  doc.text('Siswa / Kelompok,',M,y+6);doc.line(M,y+30,M+55,y+30);doc.text('('+G.nama+')',M,y+35);
+  // Simpan PDF: pakai kapabilitas 'downloads' (tersimpan ke perangkat setelah viewer menyetujui);
+  // jika tidak tersedia (mis. file dibuka langsung di browser), pakai doc.save biasa.
+  const fn='Jurnal-Detektif-Jember-'+G.nama.replace(/[^\w]+/g,'_')+'.pdf';
+  (async()=>{
+    let dl=null;
+    try{dl=window.claude&&await window.claude.use('downloads')}catch(e){}
+    if(!dl){doc.save(fn);return}
+    try{await dl.save({filename:fn,data:doc.output('blob')});toast('PDF tersimpan ke perangkat.',true)}
+    catch(e){if(e&&e.code==='declined')toast('Unduhan dibatalkan.',false);else doc.save(fn)}
+  })();
+};
+</script>
+</body>
+</html>
